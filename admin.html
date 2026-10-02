@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dachia Collections — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--ink:#1F2A33; --paper:#F2F1EC; --line:#D8D5CC; --gold:#C68B3C; --green:#3C5A4A; --red:#a5432f;}
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Inter',sans-serif;line-height:1.5;}
+  h1,h2,h3{font-family:'Fraunces',serif;font-weight:600;margin:0;}
+  header{display:flex;justify-content:space-between;align-items:center;padding:1.1rem 1.5rem;
+    border-bottom:1px solid var(--line);background:#fff;}
+  #logout{background:none;border:1px solid var(--line);padding:.4rem .8rem;border-radius:2px;cursor:pointer;font-family:'Inter';}
+  main{max-width:1000px;margin:0 auto;padding:2rem 1.5rem 4rem;}
+  #login-screen{max-width:340px;margin:4rem auto;padding:2rem;background:#fff;border:1px solid var(--line);border-radius:4px;}
+  .field{margin-bottom:.8rem;}
+  .field label{display:block;font-size:.82rem;font-weight:600;margin-bottom:.25rem;}
+  .field input,.field textarea{width:100%;padding:.55rem .65rem;border:1px solid var(--line);border-radius:2px;font-family:'Inter';font-size:.92rem;}
+  button.primary{background:var(--ink);color:#fff;border:none;padding:.65rem 1.1rem;border-radius:2px;font-weight:600;cursor:pointer;font-family:'Inter';}
+  button.primary:hover{background:#12191f;}
+  button.ghost{background:none;border:1px solid var(--line);padding:.5rem .9rem;border-radius:2px;cursor:pointer;font-family:'Inter';}
+  #login-error{color:var(--red);font-size:.85rem;margin-top:.5rem;display:none;}
+  .tabs{display:flex;gap:.5rem;margin-bottom:1.5rem;border-bottom:1px solid var(--line);}
+  .tab{padding:.7rem 1rem;cursor:pointer;font-weight:600;color:#7a766c;border-bottom:2px solid transparent;}
+  .tab.active{color:var(--ink);border-color:var(--gold);}
+  .panel{display:none;}
+  .panel.active{display:block;}
+  #product-form{background:#fff;border:1px solid var(--line);border-radius:4px;padding:1.3rem;margin-bottom:1.5rem;}
+  #product-form h3{margin-bottom:1rem;}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+  .form-actions{display:flex;gap:.6rem;margin-top:.5rem;}
+  #product-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1.2rem;}
+  .p-card{background:#fff;border:1px solid var(--line);border-radius:4px;overflow:hidden;}
+  .p-card img{width:100%;aspect-ratio:1/1;object-fit:cover;background:#e7e4dc;}
+  .p-card .pc-body{padding:.8rem 1rem 1rem;}
+  .p-card h4{font-size:1rem;margin-bottom:.2rem;}
+  .p-card .price{color:var(--green);font-weight:600;}
+  .pc-actions{display:flex;gap:.5rem;margin-top:.6rem;}
+  .pc-actions button{flex:1;font-size:.85rem;padding:.4rem;border-radius:2px;cursor:pointer;font-family:'Inter';}
+  .edit-btn{border:1px solid var(--line);background:#fff;}
+  .delete-btn{border:1px solid var(--red);background:#fff;color:var(--red);}
+  #orders-list{display:flex;flex-direction:column;gap:1rem;}
+  .order-card{background:#fff;border:1px solid var(--line);border-radius:4px;padding:1.1rem 1.3rem;}
+  .order-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.6rem;}
+  .order-top h4{font-size:1.02rem;}
+  .muted{color:#7a766c;font-size:.85rem;}
+  .order-items{margin:.6rem 0;padding:.6rem 0;border-top:1px dashed var(--line);border-bottom:1px dashed var(--line);}
+  .order-items div{display:flex;justify-content:space-between;font-size:.9rem;padding:.15rem 0;}
+  .order-total{font-weight:600;text-align:right;}
+  select.status{padding:.35rem .5rem;border-radius:2px;border:1px solid var(--line);font-family:'Inter';font-weight:600;}
+  .status-new{color:var(--gold);}
+  .status-preparing{color:#3a6ea5;}
+  .status-completed{color:var(--green);}
+  #empty-orders,#empty-products{color:#7a766c;padding:2rem 0;}
+  #admin-app{display:none;}
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <h2 style="margin-bottom:1.2rem;">Admin sign in</h2>
+  <form id="login-form">
+    <div class="field"><label>Email</label><input id="l-email" type="email" required></div>
+    <div class="field"><label>Password</label><input id="l-password" type="password" required></div>
+    <button class="primary" type="submit" style="width:100%;">Sign in</button>
+    <div id="login-error">Incorrect email or password.</div>
+  </form>
+</div>
+
+<div id="admin-app">
+  <header>
+    <h1>Admin dashboard</h1>
+    <button id="logout">Log out</button>
+  </header>
+  <main>
+    <div class="tabs">
+      <div class="tab active" data-tab="products">Products</div>
+      <div class="tab" data-tab="orders">Orders</div>
+    </div>
+
+    <div class="panel active" id="panel-products">
+      <div id="product-form">
+        <h3 id="form-title">Add a product</h3>
+        <form id="p-form">
+          <input type="hidden" id="p-id">
+          <div class="field"><label>Name</label><input id="p-name" required></div>
+          <div class="field"><label>Description</label><textarea id="p-description" rows="2"></textarea></div>
+          <div class="row2">
+            <div class="field"><label>Price (₦)</label><input id="p-price" type="number" min="0" step="1" required></div>
+            <div class="field"><label>Photo</label><input id="p-image" type="file" accept="image/*"></div>
+          </div>
+          <div class="form-actions">
+            <button class="primary" type="submit" id="p-submit">Add product</button>
+            <button class="ghost" type="button" id="p-cancel" style="display:none;">Cancel</button>
+          </div>
+        </form>
+      </div>
+      <div id="empty-products" style="display:none;">No products yet — add your first one above.</div>
+      <div id="product-list"></div>
+    </div>
+
+    <div class="panel" id="panel-orders">
+      <div id="empty-orders" style="display:none;">No orders yet.</div>
+      <div id="orders-list"></div>
+    </div>
+  </main>
+</div>
+
+<script type="module">
+import { firebaseConfig, STORE_NAME } from './firebase-config.js';
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, onSnapshot, query, orderBy, addDoc, updateDoc, deleteDoc, doc, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getStorage, ref, uploadBytes, getDownloadURL }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+
+document.title = STORE_NAME + ' — Admin';
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
+
+let products = [];
+
+onAuthStateChanged(auth, user => {
+  document.getElementById('login-screen').style.display = user ? 'none' : 'block';
+  document.getElementById('admin-app').style.display = user ? 'block' : 'none';
+});
+
+document.getElementById('login-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  document.getElementById('login-error').style.display = 'none';
+  try{
+    await signInWithEmailAndPassword(auth, document.getElementById('l-email').value, document.getElementById('l-password').value);
+  }catch(err){
+    document.getElementById('login-error').style.display = 'block';
+  }
+});
+document.getElementById('logout').addEventListener('click', () => signOut(auth));
+
+// tabs
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');
+  document.getElementById('panel-'+t.dataset.tab).classList.add('active');
+}));
+
+// ── Products ──
+onSnapshot(query(collection(db,'products'), orderBy('createdAt','desc')), snap => {
+  products = snap.docs.map(d => ({id:d.id, ...d.data()}));
+  renderProducts();
+});
+
+function renderProducts(){
+  const list = document.getElementById('product-list');
+  document.getElementById('empty-products').style.display = products.length ? 'none' : 'block';
+  list.innerHTML = products.map(p => `
+    <div class="p-card">
+      <img src="${p.imageUrl||''}" onerror="this.style.opacity=0">
+      <div class="pc-body">
+        <h4>${escapeHtml(p.name)}</h4>
+        <div class="muted">${escapeHtml(p.description||'')}</div>
+        <div class="price">₦${Number(p.price).toLocaleString()}</div>
+        <div class="pc-actions">
+          <button class="edit-btn" onclick="editProduct('${p.id}')">Edit</button>
+          <button class="delete-btn" onclick="deleteProduct('${p.id}')">Delete</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+const pForm = document.getElementById('p-form');
+pForm.addEventListener('submit', async e => {
+  e.preventDefault();
+  const id = document.getElementById('p-id').value;
+  const submitBtn = document.getElementById('p-submit');
+  submitBtn.disabled = true; submitBtn.textContent = 'Saving…';
+  try{
+    let imageUrl = id ? (products.find(p=>p.id===id)||{}).imageUrl : null;
+    const file = document.getElementById('p-image').files[0];
+    if(file){
+      const fileRef = ref(storage, 'products/' + Date.now() + '_' + file.name);
+      await uploadBytes(fileRef, file);
+      imageUrl = await getDownloadURL(fileRef);
+    }
+    const data = {
+      name: document.getElementById('p-name').value,
+      description: document.getElementById('p-description').value,
+      price: Number(document.getElementById('p-price').value),
+      imageUrl: imageUrl || null
+    };
+    if(id){
+      await updateDoc(doc(db,'products',id), data);
+    }else{
+      data.createdAt = serverTimestamp();
+      await addDoc(collection(db,'products'), data);
+    }
+    resetForm();
+  }catch(err){
+    alert('Could not save product — please try again.');
+    console.error(err);
+  }finally{
+    submitBtn.disabled = false;
+    submitBtn.textContent = id ? 'Save changes' : 'Add product';
+  }
+});
+
+window.editProduct = (id) => {
+  const p = products.find(p=>p.id===id);
+  if(!p) return;
+  document.getElementById('form-title').textContent = 'Edit product';
+  document.getElementById('p-id').value = id;
+  document.getElementById('p-name').value = p.name;
+  document.getElementById('p-description').value = p.description||'';
+  document.getElementById('p-price').value = p.price;
+  document.getElementById('p-submit').textContent = 'Save changes';
+  document.getElementById('p-cancel').style.display = 'inline-block';
+  window.scrollTo({top:0, behavior:'smooth'});
+};
+window.deleteProduct = async (id) => {
+  if(!confirm('Delete this product? This cannot be undone.')) return;
+  await deleteDoc(doc(db,'products',id));
+};
+document.getElementById('p-cancel').addEventListener('click', resetForm);
+function resetForm(){
+  pForm.reset();
+  document.getElementById('p-id').value = '';
+  document.getElementById('form-title').textContent = 'Add a product';
+  document.getElementById('p-submit').textContent = 'Add product';
+  document.getElementById('p-cancel').style.display = 'none';
+}
+
+// ── Orders ──
+onSnapshot(query(collection(db,'orders'), orderBy('createdAt','desc')), snap => {
+  const orders = snap.docs.map(d => ({id:d.id, ...d.data()}));
+  document.getElementById('empty-orders').style.display = orders.length ? 'none' : 'block';
+  document.getElementById('orders-list').innerHTML = orders.map(o => `
+    <div class="order-card">
+      <div class="order-top">
+        <div>
+          <h4>${escapeHtml(o.customerName||'Unnamed customer')}</h4>
+          <div class="muted">${escapeHtml(o.customerPhone||'')} · ${escapeHtml(o.customerAddress||'')}</div>
+          ${o.note ? `<div class="muted">Note: ${escapeHtml(o.note)}</div>` : ''}
+        </div>
+        <select class="status status-${o.status||'new'}" onchange="updateStatus('${o.id}', this.value)">
+          <option value="new" ${o.status==='new'?'selected':''}>New</option>
+          <option value="preparing" ${o.status==='preparing'?'selected':''}>Preparing</option>
+          <option value="completed" ${o.status==='completed'?'selected':''}>Completed</option>
+        </select>
+      </div>
+      <div class="order-items">
+        ${(o.items||[]).map(i => `<div><span>${i.qty} × ${escapeHtml(i.name)}</span><span>₦${(i.price*i.qty).toLocaleString()}</span></div>`).join('')}
+      </div>
+      <div class="order-total">Total: ₦${Number(o.total||0).toLocaleString()}</div>
+    </div>`).join('');
+});
+window.updateStatus = async (id, status) => {
+  await updateDoc(doc(db,'orders',id), { status });
+};
+
+function escapeHtml(s){
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+</script>
+</body>
+</html>
