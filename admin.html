@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Dachia Collections – Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=Figtree:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--plum:#3a1d3c;--lilac:#f5f0f6;--gold:#d08a0b;--ink:#241626;--line:#e1d6e4}
+*{box-sizing:border-box}body{margin:0;font:16px/1.5 Figtree,system-ui,sans-serif;background:var(--lilac);color:var(--ink)}
+h1,h2,h3{font-family:"Bricolage Grotesque",sans-serif;margin:0}
+header{display:flex;justify-content:space-between;align-items:center;padding:14px 5vw;background:var(--plum);color:#fff;gap:10px}
+button{font:inherit;cursor:pointer;border:0;border-radius:10px;padding:9px 14px;background:var(--gold);color:#1b1000;font-weight:600}
+button.g{background:#fff;color:var(--ink);border:1px solid var(--line)}button.d{background:#b3261e;color:#fff}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+input,textarea{font:inherit;padding:9px;border:1px solid var(--line);border-radius:8px;width:100%;background:#fff}
+main{max-width:900px;margin:0 auto;padding:20px 5vw 8vh}
+.box{background:#fff;border:1px solid var(--line);border-radius:6px 18px 6px 18px;padding:16px;margin-bottom:16px;display:grid;gap:8px}
+.tabs{display:flex;gap:8px;margin-bottom:16px}.tabs button.on{background:var(--plum);color:#fff}
+.p{display:grid;grid-template-columns:90px 1fr;gap:12px}.p img{width:90px;height:90px;object-fit:cover;border-radius:8px;background:var(--line)}
+.p .f{display:grid;gap:6px}.acts{display:flex;gap:8px;flex-wrap:wrap}
+.badge{font-size:.8rem;padding:2px 10px;border-radius:99px;background:var(--gold);color:#1b1000}.badge.done{background:#cfe9cf}
+#login{max-width:360px;margin:12vh auto;padding:0 5vw}
+label{display:grid;gap:4px;font-size:.9rem}
+[hidden]{display:none!important}
+</style></head><body>
+<div id="login" class="box"><h1>Admin login</h1>
+ <input id="em" type="email" placeholder="Email" autocomplete="username"><input id="pw" type="password" placeholder="Password" autocomplete="current-password">
+ <button id="in">Log in</button><p id="err" style="color:#b3261e;margin:0"></p></div>
+<div id="app" hidden>
+<header><h1>Dachia Collections – Admin</h1><div class="acts"><a href="index.html" style="color:#fff">View shop</a><button class="g" id="out">Log out</button></div></header>
+<main>
+ <div class="tabs"><button id="t1" class="on">Products</button><button id="t2" class="g">Orders <span id="oc"></span></button></div>
+ <section id="s1">
+  <div class="box"><h2>Add a product</h2>
+   <input id="nn" placeholder="Product name"><input id="np" type="number" min="0" placeholder="Price (₦)">
+   <textarea id="nd" rows="2" placeholder="Description"></textarea>
+   <label>Photo from your device<input id="ni" type="file" accept="image/*"></label><label>Or paste a photo URL<input id="nu" type="url" placeholder="https://example.com/photo.jpg"></label><button id="add">Add product</button></div>
+  <div id="plist"></div>
+ </section>
+ <section id="s2" hidden><div id="olist"></div></section>
+</main></div>
+<script type="module">
+import {db,auth,money,esc} from "./firebase-config.js";
+import {signInWithEmailAndPassword,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {collection,onSnapshot,query,orderBy,addDoc,updateDoc,deleteDoc,doc,serverTimestamp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+const $=id=>document.getElementById(id);let unsub=[];
+$("in").onclick=()=>signInWithEmailAndPassword(auth,$("em").value,$("pw").value).catch(()=>$("err").textContent="Wrong email or password.");
+$("out").onclick=()=>signOut(auth);
+onAuthStateChanged(auth,u=>{$("login").hidden=!!u;$("app").hidden=!u;unsub.forEach(f=>f());unsub=[];if(u)start()});
+const tab=n=>{$("s1").hidden=n!=1;$("s2").hidden=n!=2;$("t1").className=n==1?"on":"g";$("t2").className=n==2?"on":"g"};
+$("t1").onclick=()=>tab(1);$("t2").onclick=()=>tab(2);
+const shrink=f=>new Promise(r=>{const i=new Image();i.onload=()=>{const s=Math.min(1,800/Math.max(i.width,i.height)),c=document.createElement("canvas");c.width=i.width*s;c.height=i.height*s;c.getContext("2d").drawImage(i,0,0,c.width,c.height);r(c.toDataURL("image/jpeg",.8))};i.src=URL.createObjectURL(f)});
+$("add").onclick=async()=>{
+ const f=$("ni").files[0],u=$("nu").value.trim();
+ if(!$("nn").value.trim()||!$("np").value||(!f&&!u))return alert("Add a name, price and a photo (upload one or paste a URL).");
+ if(!f&&!/^https?:\/\//i.test(u))return alert("The photo URL must start with http:// or https://");
+ $("add").disabled=true;
+ try{await addDoc(collection(db,"products"),{name:$("nn").value.trim(),price:Number($("np").value),description:$("nd").value.trim(),image:f?await shrink(f):u,createdAt:serverTimestamp()});
+  ["nn","np","nd","ni","nu"].forEach(i=>$(i).value="");alert("Product added. It's live on the shop.")}catch(e){alert("Couldn't add the product: "+e.message)}
+ $("add").disabled=false;
+};
+function start(){
+ unsub.push(onSnapshot(query(collection(db,"products"),orderBy("createdAt","desc")),s=>{
+  $("plist").innerHTML=s.docs.map(d=>{const p=d.data();return `<div class="box p" data-id="${d.id}"><img src="${esc(p.image)}" alt=""><div class="f"><input class="n" value="${esc(p.name)}"><input class="pr" type="number" value="${p.price}"><textarea class="de" rows="2">${esc(p.description)}</textarea><input class="iu" type="url" placeholder="Paste a new photo URL to change the photo (optional)"><div class="acts"><button data-s>Save changes</button><button class="d" data-x>Delete</button></div></div></div>`}).join("")||"<p>No products yet. Add your first one above.</p>"}));
+ unsub.push(onSnapshot(query(collection(db,"orders"),orderBy("createdAt","desc")),s=>{
+  $("oc").textContent=s.docs.filter(d=>d.data().status=="new").length||"";
+  $("olist").innerHTML=s.docs.map(d=>{const o=d.data(),c=o.customer||{};return `<div class="box" data-id="${d.id}"><div class="acts"><span class="badge ${o.status}">${o.status=="new"?"New":"Handled"}</span><small>${o.createdAt?o.createdAt.toDate().toLocaleString():""}</small></div>
+  <h3>${esc(c.name)} – <a href="tel:${esc(c.phone)}">${esc(c.phone)}</a></h3><div>${esc(c.address)}</div>
+  <ul>${(o.items||[]).map(i=>`<li>${i.qty} × ${esc(i.name)} – ${money(i.price*i.qty)}</li>`).join("")}</ul><b>Total: ${money(o.total)}</b>
+  <div class="acts">${o.status=="new"?'<button data-h>Mark as handled</button>':""}<button class="d" data-od>Delete</button></div></div>`}).join("")||"<p>No orders yet.</p>"}));
+}
+$("plist").onclick=async e=>{const b=e.target.closest(".p");if(!b)return;const id=b.dataset.id;
+ if(e.target.dataset.s!==undefined){const u=b.querySelector(".iu").value.trim();
+  if(u&&!/^https?:\/\//i.test(u))return alert("The photo URL must start with http:// or https://");
+  const d={name:b.querySelector(".n").value.trim(),price:Number(b.querySelector(".pr").value),description:b.querySelector(".de").value.trim()};
+  if(u)d.image=u;
+  await updateDoc(doc(db,"products",id),d);alert("Saved.")}
+ if(e.target.dataset.x!==undefined&&confirm("Delete this product?"))await deleteDoc(doc(db,"products",id))};
+$("olist").onclick=async e=>{const b=e.target.closest(".box");if(!b)return;const id=b.dataset.id;
+ if(e.target.dataset.h!==undefined)await updateDoc(doc(db,"orders",id),{status:"done"});
+ if(e.target.dataset.od!==undefined&&confirm("Delete this order?"))await deleteDoc(doc(db,"orders",id))};
+</script></body></html>
