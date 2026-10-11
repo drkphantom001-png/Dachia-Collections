@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Dachia Collections – Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700&family=Figtree:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--esp:#2e1c12;--cof:#6b4429;--car:#b8814f;--milk:#f5ede2;--cream:#fffaf3;--line:#e6d9c8}
+*{box-sizing:border-box}body{margin:0;font:16px/1.5 Figtree,system-ui,sans-serif;background:var(--milk);color:var(--esp)}
+h1,h2,h3{font-family:Fraunces,Georgia,serif;margin:0}
+header{display:flex;justify-content:space-between;align-items:center;padding:14px 5vw;background:var(--esp);color:var(--cream);gap:10px;flex-wrap:wrap}
+header h1{font-size:1.3rem}header a{color:var(--cream)}
+button{font:inherit;cursor:pointer;border:0;border-radius:99px;padding:9px 16px;background:var(--cof);color:var(--cream);font-weight:600}
+button:hover{background:var(--car)}button.g{background:#fff;color:var(--esp);border:1px solid var(--line)}button.d{background:#9b2c20;color:#fff}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--car);outline-offset:2px}
+input,textarea{font:inherit;padding:10px;border:1.5px solid var(--line);border-radius:12px;width:100%;background:#fff;color:var(--esp)}
+label{display:grid;gap:4px;font-size:.9rem}
+main{max-width:900px;margin:0 auto;padding:20px 5vw 8vh}
+.box{background:#fff;border:1px solid var(--line);border-radius:20px;padding:18px;margin-bottom:16px;display:grid;gap:9px;box-shadow:0 4px 16px #6b44291a}
+.tabs{display:flex;gap:8px;margin-bottom:16px}.tabs button.on{background:var(--esp);color:var(--cream)}
+.p{display:grid;grid-template-columns:90px 1fr;gap:12px}.p img{width:90px;height:90px;object-fit:cover;border-radius:14px;background:var(--milk)}
+.p .f{display:grid;gap:6px}.acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.badge{font-size:.8rem;padding:2px 12px;border-radius:99px;background:var(--car);color:#fff}.badge.done{background:#d9e8d4;color:#2e4a28}
+.cnt{background:#c0392b;color:#fff;border-radius:99px;padding:0 8px;font-size:.8rem;margin-left:4px}
+.cnt:empty{display:none}
+#login{max-width:360px;margin:12vh auto;padding:20px}
+#toast{position:fixed;top:14px;left:50%;transform:translate(-50%,-140px);background:var(--esp);color:var(--cream);padding:14px 22px;border-radius:18px;z-index:20;cursor:pointer;box-shadow:0 10px 30px #0006;transition:transform .35s;max-width:92vw;text-align:center}
+#toast.on{transform:translate(-50%,0)}
+.ring{animation:r .6s 3}@keyframes r{50%{transform:scale(1.15)}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+[hidden]{display:none!important}
+</style></head><body>
+<div id="login" class="box"><h1>Admin login</h1>
+ <input id="em" type="email" placeholder="Email" autocomplete="username"><input id="pw" type="password" placeholder="Password" autocomplete="current-password">
+ <button id="in">Log in</button><p id="err" style="color:#9b2c20;margin:0"></p></div>
+<div id="toast" role="alert"></div>
+<div id="app" hidden>
+<header><h1>Dachia Collections – Admin</h1><div class="acts"><button class="g" id="bell">🔔 Turn on alerts</button><a href="index.html">View shop</a><button class="g" id="out">Log out</button></div></header>
+<main>
+ <div class="tabs"><button id="t1" class="on">Products</button><button id="t2" class="g">Orders<span id="oc" class="cnt"></span></button></div>
+ <section id="s1">
+  <div class="box"><h2>Add a product</h2>
+   <input id="nn" placeholder="Product name"><input id="np" type="number" min="0" placeholder="Price (₦)">
+   <textarea id="nd" rows="2" placeholder="Description"></textarea>
+   <label>Photo from your device<input id="ni" type="file" accept="image/*"></label>
+   <label>Or paste a photo URL<input id="nu" type="url" placeholder="https://example.com/photo.jpg"></label>
+   <button id="add">Add product</button></div>
+  <div id="plist"></div>
+ </section>
+ <section id="s2" hidden><div id="olist"></div></section>
+</main></div>
+<script type="module">
+import {db,auth,money,esc} from "./firebase-config.js";
+import {signInWithEmailAndPassword,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {collection,onSnapshot,query,orderBy,addDoc,updateDoc,deleteDoc,doc,serverTimestamp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+const $=id=>document.getElementById(id);let unsub=[],ctx,tt,baseTitle=document.title,flash;
+$("in").onclick=()=>signInWithEmailAndPassword(auth,$("em").value,$("pw").value).catch(()=>$("err").textContent="Wrong email or password.");
+$("out").onclick=()=>signOut(auth);
+onAuthStateChanged(auth,u=>{$("login").hidden=!!u;$("app").hidden=!u;unsub.forEach(f=>f());unsub=[];if(u)start()});
+const tab=n=>{$("s1").hidden=n!=1;$("s2").hidden=n!=2;$("t1").className=n==1?"on":"g";$("t2").className=n==2?"on":"g";if(n==2)stopFlash()};
+$("t1").onclick=()=>tab(1);$("t2").onclick=()=>tab(2);
+/* ---- alerts ---- */
+const wake=()=>{try{ctx=ctx||new (window.AudioContext||window.webkitAudioContext)();ctx.resume()}catch(e){}};
+document.addEventListener("click",wake);
+$("bell").onclick=async()=>{wake();beep();
+ try{if("Notification" in window&&Notification.permission=="default")await Notification.requestPermission()}catch(e){}
+ $("bell").textContent="🔔 Alerts on";};
+function beep(){if(!ctx)return;[0,.18,.36].forEach((t,i)=>{const o=ctx.createOscillator(),g=ctx.createGain();o.frequency.value=[660,880,1100][i];o.connect(g);g.connect(ctx.destination);g.gain.setValueAtTime(.25,ctx.currentTime+t);g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+t+.16);o.start(ctx.currentTime+t);o.stop(ctx.currentTime+t+.17)})}
+function stopFlash(){clearInterval(flash);flash=null;document.title=baseTitle}
+function notify(o){
+ const c=o.customer||{},t=`New order from ${c.name||"a customer"} – ${money(o.total)}`;
+ const e=$("toast");e.textContent="🛍️ "+t;e.classList.add("on");clearTimeout(tt);tt=setTimeout(()=>e.classList.remove("on"),8000);
+ e.onclick=()=>{e.classList.remove("on");tab(2)};
+ beep();$("t2").classList.remove("ring");void $("t2").offsetWidth;$("t2").classList.add("ring");
+ if(!flash){let on=0;flash=setInterval(()=>document.title=(on^=1)?"🛍️ New order!":baseTitle,1000)}
+ try{if("Notification" in window&&Notification.permission=="granted")new Notification("Dachia Collections",{body:t})}catch(e){}
+}
+addEventListener("focus",()=>{if(!$("s2").hidden)stopFlash()});
+/* ---- products ---- */
+const shrink=f=>new Promise(r=>{const i=new Image();i.onload=()=>{const s=Math.min(1,800/Math.max(i.width,i.height)),c=document.createElement("canvas");c.width=i.width*s;c.height=i.height*s;c.getContext("2d").drawImage(i,0,0,c.width,c.height);r(c.toDataURL("image/jpeg",.8))};i.src=URL.createObjectURL(f)});
+$("add").onclick=async()=>{
+ const f=$("ni").files[0],u=$("nu").value.trim();
+ if(!$("nn").value.trim()||!$("np").value||(!f&&!u))return alert("Add a name, price and a photo (upload one or paste a URL).");
+ if(!f&&!/^https?:\/\//i.test(u))return alert("The photo URL must start with http:// or https://");
+ $("add").disabled=true;
+ try{await addDoc(collection(db,"products"),{name:$("nn").value.trim(),price:Number($("np").value),description:$("nd").value.trim(),image:f?await shrink(f):u,createdAt:serverTimestamp()});
+  ["nn","np","nd","ni","nu"].forEach(i=>$(i).value="");alert("Product added. It's live on the shop.")}catch(e){alert("Couldn't add the product: "+e.message)}
+ $("add").disabled=false;
+};
+function start(){
+ let first=true;
+ unsub.push(onSnapshot(query(collection(db,"products"),orderBy("createdAt","desc")),s=>{
+  $("plist").innerHTML=s.docs.map(d=>{const p=d.data();return `<div class="box p" data-id="${d.id}"><img src="${esc(p.image)}" alt=""><div class="f"><input class="n" value="${esc(p.name)}"><input class="pr" type="number" value="${p.price}"><textarea class="de" rows="2">${esc(p.description)}</textarea><input class="iu" type="url" placeholder="Paste a new photo URL to change the photo (optional)"><div class="acts"><button data-s>Save changes</button><button class="d" data-x>Delete</button></div></div></div>`}).join("")||"<p>No products yet. Add your first one above.</p>"}));
+ unsub.push(onSnapshot(query(collection(db,"orders"),orderBy("createdAt","desc")),s=>{
+  if(!first)s.docChanges().forEach(c=>{if(c.type=="added"&&c.doc.data().status=="new")notify(c.doc.data())});
+  first=false;
+  $("oc").textContent=s.docs.filter(d=>d.data().status=="new").length||"";
+  $("olist").innerHTML=s.docs.map(d=>{const o=d.data(),c=o.customer||{};return `<div class="box" data-id="${d.id}"><div class="acts"><span class="badge ${o.status}">${o.status=="new"?"New":"Handled"}</span><small>${o.createdAt?o.createdAt.toDate().toLocaleString():""}</small></div>
+  <h3>${esc(c.name)} – <a href="tel:${esc(c.phone)}">${esc(c.phone)}</a></h3><div>${esc(c.address)}</div>
+  <ul>${(o.items||[]).map(i=>`<li>${i.qty} × ${esc(i.name)} – ${money(i.price*i.qty)}</li>`).join("")}</ul><b>Total: ${money(o.total)}</b>
+  <div class="acts">${o.status=="new"?'<button data-h>Mark as handled</button>':""}<button class="d" data-od>Delete</button></div></div>`}).join("")||"<p>No orders yet.</p>"}));
+}
+$("plist").onclick=async e=>{const b=e.target.closest(".p");if(!b)return;const id=b.dataset.id;
+ if(e.target.dataset.s!==undefined){
+  const u=b.querySelector(".iu").value.trim();
+  if(u&&!/^https?:\/\//i.test(u))return alert("The photo URL must start with http:// or https://");
+  const d={name:b.querySelector(".n").value.trim(),price:Number(b.querySelector(".pr").value),description:b.querySelector(".de").value.trim()};
+  if(u)d.image=u;
+  await updateDoc(doc(db,"products",id),d);alert("Saved.")}
+ if(e.target.dataset.x!==undefined&&confirm("Delete this product?"))await deleteDoc(doc(db,"products",id))};
+$("olist").onclick=async e=>{const b=e.target.closest(".box");if(!b)return;const id=b.dataset.id;
+ if(e.target.dataset.h!==undefined)await updateDoc(doc(db,"orders",id),{status:"done"});
+ if(e.target.dataset.od!==undefined&&confirm("Delete this order?"))await deleteDoc(doc(db,"orders",id))};
+</script></body></html>
